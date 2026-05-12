@@ -118,6 +118,7 @@
         -webkit-appearance: none;
         border-radius: 0;
         font-size: clamp(34px, 6vw, 70px);
+        line-height: 1;
       }
 
       .square.light {
@@ -247,7 +248,7 @@
         <input id="fen-input" type="text" spellcheck="false" />
         <button id="load-fen" type="button">Ladda FEN</button>
         <button id="accept-node" type="button">Acceptera ställning</button>
-        <button id="reset-tree" type="button">Rensa träd</button>
+        <button id="reset-tree" type="button">Rensa</button>
       </section>
 
       <section class="layout">
@@ -274,8 +275,13 @@
           </section>
 
           <section class="card">
+            <h2>Drag</h2>
+            <p class="legend">Dra med vänster musknapp från startrutan till målrutan för att mata in ett drag.</p>
+          </section>
+
+          <section class="card">
             <h2>Styrning</h2>
-            <p class="legend">➡️ går till valt barn. ⬅️ går till förälder. ⬆️ och ⬇️ växlar mellan syskon.</p>
+            <p class="legend">⬅️ går till förra draget.<br />➡️ går till nästa drag.<br />⬆️ och ⬇️ växlar mellan alternativa drag.</p>
           </section>
         </aside>
       </section>
