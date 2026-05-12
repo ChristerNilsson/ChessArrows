@@ -1,20 +1,5 @@
 const FILES = "abcdefgh".split("");
 const RANKS = "87654321".split("");
-const UNICODE_PIECES = {
-  P: "\u2659",
-  N: "\u2658",
-  B: "\u2657",
-  R: "\u2656",
-  Q: "\u2655",
-  K: "\u2654",
-  p: "\u265F",
-  n: "\u265E",
-  b: "\u265D",
-  r: "\u265C",
-  q: "\u265B",
-  k: "\u265A",
-};
-
 const boardEl = document.getElementById("board");
 const arrowsEl = document.getElementById("arrows");
 const pathEl = document.getElementById("path");
@@ -22,6 +7,10 @@ const fenInput = document.getElementById("fen-input");
 const loadFenButton = document.getElementById("load-fen");
 const acceptNodeButton = document.getElementById("accept-node");
 const resetTreeButton = document.getElementById("reset-tree");
+const navLeftButton = document.getElementById("nav-left");
+const navUpButton = document.getElementById("nav-up");
+const navRightButton = document.getElementById("nav-right");
+const navDownButton = document.getElementById("nav-down");
 
 const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
 const SQUARE_SIZE = 100;
@@ -35,8 +24,7 @@ const state = {
   acceptedFen: START_FEN,
   root: null,
   currentNode: null,
-  draggingFrom: null,
-  previewSquare: null,
+  selectedFrom: null,
 };
 
 function createNode(parent, move, fenAfter) {
@@ -55,8 +43,7 @@ function freshTree(fen) {
   const root = createNode(null, null, fen);
   state.root = root;
   state.currentNode = root;
-  state.draggingFrom = null;
-  state.previewSquare = null;
+  state.selectedFrom = null;
   return root;
 }
 
@@ -85,6 +72,72 @@ function pieceColor(piece) {
 
 function pieceType(piece) {
   return piece.toLowerCase();
+}
+
+function pieceMarkup(piece) {
+  if (!piece) {
+    return "";
+  }
+
+  const isWhite = piece === piece.toUpperCase();
+  const fill = isWhite ? "#f7f2e7" : "#2a2a2a";
+  const stroke = isWhite ? "#5a4d3c" : "#111111";
+  const accent = isWhite ? "#d8c7ab" : "#5a5a5a";
+  const type = pieceType(piece);
+  const inner = {
+    p: `
+      <circle cx="50" cy="25" r="12" />
+      <path d="M34 47 C34 36, 66 36, 66 47 L61 58 C70 63, 74 72, 74 82 L26 82 C26 72, 30 63, 39 58 Z" />
+      <path d="M30 82 L70 82 L64 90 L36 90 Z" fill="${accent}" />
+    `,
+    r: `
+      <rect x="30" y="18" width="8" height="14" />
+      <rect x="46" y="18" width="8" height="14" />
+      <rect x="62" y="18" width="8" height="14" />
+      <rect x="28" y="30" width="44" height="12" />
+      <rect x="32" y="42" width="36" height="34" rx="3" />
+      <rect x="26" y="76" width="48" height="10" rx="2" />
+      <rect x="22" y="86" width="56" height="6" rx="2" fill="${accent}" />
+    `,
+    n: `
+      <path d="M66 24 C58 18, 48 19, 42 28 L35 38 L28 42 L34 48 L30 58 C27 66, 29 76, 36 82 L72 82 C69 72, 65 64, 61 56 C58 50, 58 43, 61 35 L66 24 Z" />
+      <circle cx="54" cy="32" r="2.8" fill="${accent}" stroke="none" />
+      <path d="M39 47 C45 44, 50 45, 55 50" fill="none" />
+      <rect x="28" y="82" width="44" height="8" rx="2" fill="${accent}" />
+    `,
+    b: `
+      <path d="M50 16 L57 28 L50 41 L43 28 Z" />
+      <path d="M50 41 C38 41, 32 50, 34 60 C35 65, 40 69, 40 74 L60 74 C60 69, 65 65, 66 60 C68 50, 62 41, 50 41 Z" />
+      <path d="M34 74 L66 74 L62 90 L38 90 Z" />
+      <path d="M46 21 L54 35" fill="none" />
+      <rect x="30" y="90" width="40" height="4" rx="2" fill="${accent}" stroke="none" />
+    `,
+    q: `
+      <circle cx="24" cy="25" r="5" />
+      <circle cx="38" cy="18" r="5" />
+      <circle cx="50" cy="24" r="5" />
+      <circle cx="62" cy="18" r="5" />
+      <circle cx="76" cy="25" r="5" />
+      <path d="M24 30 L32 58 L68 58 L76 30 L62 40 L50 30 L38 40 Z" />
+      <path d="M34 58 L66 58 L72 82 L28 82 Z" />
+      <rect x="24" y="82" width="52" height="8" rx="2" fill="${accent}" />
+    `,
+    k: `
+      <rect x="46" y="10" width="8" height="18" />
+      <rect x="40" y="16" width="20" height="6" />
+      <path d="M38 34 C38 26, 62 26, 62 34 L60 46 C69 51, 74 61, 74 74 L26 74 C26 61, 31 51, 40 46 Z" />
+      <path d="M32 74 L68 74 L64 90 L36 90 Z" />
+      <rect x="28" y="90" width="44" height="4" rx="2" fill="${accent}" />
+    `,
+  }[type];
+
+  return `
+    <svg class="piece-svg" viewBox="0 0 100 100" aria-hidden="true">
+      <g fill="${fill}" stroke="${stroke}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round">
+        ${inner}
+      </g>
+    </svg>
+  `;
 }
 
 function clonePosition(position) {
@@ -292,12 +345,12 @@ function drawBoard() {
       squareEl.className = `square ${((FILES.indexOf(file) + Number(rank)) % 2 === 0) ? "dark" : "light"}`;
       squareEl.dataset.square = square;
 
-      if (state.draggingFrom === square) {
+      if (state.selectedFrom === square) {
         squareEl.classList.add("drag-start");
       }
 
       const piece = pieces[square];
-      squareEl.textContent = piece ? UNICODE_PIECES[piece] : "";
+      squareEl.innerHTML = pieceMarkup(piece);
 
       if (file === "a" || rank === "1") {
         if (file === "a") {
@@ -390,9 +443,6 @@ function drawArrows() {
     });
   }
 
-  if (state.draggingFrom && state.previewSquare) {
-    buildArrow(state.draggingFrom, state.previewSquare, "#1f6f78", "arrow-preview", PREVIEW_ARROW_WIDTH, 0.8);
-  }
 }
 
 function updatePanels() {
@@ -458,6 +508,31 @@ function render() {
   drawBoard();
   drawArrows();
   updatePanels();
+}
+
+function goToNextMove() {
+  const child = selectedChild(state.currentNode);
+  if (child) {
+    state.currentNode = child;
+    render();
+  }
+}
+
+function goToPreviousMove() {
+  if (state.currentNode.parent) {
+    state.currentNode = state.currentNode.parent;
+    render();
+  }
+}
+
+function goToSibling(delta) {
+  const siblings = siblingsOfCurrent();
+  if (siblings.length) {
+    const count = siblings.length;
+    const index = currentSiblingIndex();
+    state.currentNode = siblings[(index + delta + count) % count];
+    render();
+  }
 }
 
 function findKingSquare(position, color) {
@@ -910,43 +985,26 @@ boardEl.addEventListener("mousedown", (event) => {
   }
   const square = squareEl.dataset.square;
 
-  if (event.button === 0) {
-    state.draggingFrom = square;
-    state.previewSquare = square;
+  if (event.button !== 0) {
+    return;
+  }
+
+  if (!state.selectedFrom) {
+    state.selectedFrom = square;
     render();
     return;
   }
-});
 
-boardEl.addEventListener("mousemove", (event) => {
-  if (!state.draggingFrom) {
+  if (state.selectedFrom === square) {
+    state.selectedFrom = null;
+    render();
     return;
   }
-  const squareEl = event.target.closest(".square");
-  if (!squareEl) {
-    return;
-  }
-  const square = squareEl.dataset.square;
-  if (square === state.previewSquare) {
-    return;
-  }
-  state.previewSquare = square;
-  drawBoard();
-  drawArrows();
-});
 
-window.addEventListener("mouseup", (event) => {
-  if (!state.draggingFrom) {
-    return;
-  }
-  const squareEl = event.target.closest ? event.target.closest(".square") : null;
-  const from = state.draggingFrom;
-  const to = squareEl ? squareEl.dataset.square : null;
-
-  state.draggingFrom = null;
-  state.previewSquare = null;
-
-  if (to && to !== from) {
+  const from = state.selectedFrom;
+  const to = square;
+  state.selectedFrom = null;
+  if (to !== from) {
     const baseNode = insertionBaseNodeForDrag(from);
     const move = legalMoveFromNode(baseNode, from, to);
     if (move) {
@@ -959,35 +1017,16 @@ window.addEventListener("mouseup", (event) => {
 
 window.addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") {
-    const child = selectedChild(state.currentNode);
-    if (child) {
-      state.currentNode = child;
-      render();
-    }
+    goToNextMove();
     event.preventDefault();
   } else if (event.key === "ArrowLeft") {
-    if (state.currentNode.parent) {
-      state.currentNode = state.currentNode.parent;
-      render();
-    }
+    goToPreviousMove();
     event.preventDefault();
   } else if (event.key === "ArrowUp") {
-    const siblings = siblingsOfCurrent();
-    if (siblings.length) {
-      const count = siblings.length;
-      const index = currentSiblingIndex();
-      state.currentNode = siblings[(index - 1 + count) % count];
-      render();
-    }
+    goToSibling(-1);
     event.preventDefault();
   } else if (event.key === "ArrowDown") {
-    const siblings = siblingsOfCurrent();
-    if (siblings.length) {
-      const count = siblings.length;
-      const index = currentSiblingIndex();
-      state.currentNode = siblings[(index + 1) % count];
-      render();
-    }
+    goToSibling(1);
     event.preventDefault();
   }
 });
@@ -995,6 +1034,10 @@ window.addEventListener("keydown", (event) => {
 loadFenButton.addEventListener("click", loadFen);
 acceptNodeButton.addEventListener("click", acceptCurrentPosition);
 resetTreeButton.addEventListener("click", resetTree);
+navLeftButton.addEventListener("click", goToPreviousMove);
+navUpButton.addEventListener("click", () => goToSibling(-1));
+navRightButton.addEventListener("click", goToNextMove);
+navDownButton.addEventListener("click", () => goToSibling(1));
 
 fenInput.value = state.acceptedFen;
 freshTree(state.acceptedFen);

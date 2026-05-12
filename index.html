@@ -119,6 +119,8 @@
         border-radius: 0;
         font-size: clamp(34px, 6vw, 70px);
         line-height: 1;
+        font-family: "Times New Roman", Georgia, serif;
+        color: #111111;
       }
 
       .square.light {
@@ -230,6 +232,45 @@
         color: var(--muted);
       }
 
+      .nav-pad {
+        display: grid;
+        grid-template-columns: repeat(3, 52px);
+        grid-template-rows: repeat(2, 52px);
+        gap: 8px;
+        justify-content: center;
+        margin-top: 12px;
+      }
+
+      .nav-btn {
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.85);
+        color: var(--text);
+        font-size: 24px;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .nav-left {
+        grid-column: 1;
+        grid-row: 1;
+      }
+
+      .nav-up {
+        grid-column: 2;
+        grid-row: 1;
+      }
+
+      .nav-right {
+        grid-column: 3;
+        grid-row: 1;
+      }
+
+      .nav-down {
+        grid-column: 2;
+        grid-row: 2;
+      }
+
       @media (max-width: 840px) {
         .toolbar {
           grid-template-columns: 1fr 1fr;
@@ -276,12 +317,18 @@
 
           <section class="card">
             <h2>Drag</h2>
-            <p class="legend">Dra med vänster musknapp från startrutan till målrutan för att mata in ett drag.</p>
+            <p class="legend">Klicka på startrutan och sedan på målrutan för att mata in ett drag.</p>
           </section>
 
           <section class="card">
             <h2>Styrning</h2>
             <p class="legend">⬅️ går till förra draget.<br />➡️ går till nästa drag.<br />⬆️ och ⬇️ växlar mellan alternativa drag.</p>
+            <div class="nav-pad" aria-label="Navigering">
+              <button id="nav-left" class="nav-btn nav-left" type="button" aria-label="Förra draget">⬅️</button>
+              <button id="nav-up" class="nav-btn nav-up" type="button" aria-label="Alternativ upp">⬆️</button>
+              <button id="nav-right" class="nav-btn nav-right" type="button" aria-label="Nästa drag">➡️</button>
+              <button id="nav-down" class="nav-btn nav-down" type="button" aria-label="Alternativ ner">⬇️</button>
+            </div>
           </section>
         </aside>
       </section>
