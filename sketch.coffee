@@ -5,13 +5,7 @@ arrowsEl = document.getElementById "arrows"
 pathEl = document.getElementById "path"
 fenInput = document.getElementById "fen-input"
 loadFenButton = document.getElementById "load-fen"
-acceptNodeButton = document.getElementById "accept-node"
 resetTreeButton = document.getElementById "reset-tree"
-navLeftButton = document.getElementById "nav-left"
-navUpButton = document.getElementById "nav-up"
-navRightButton = document.getElementById "nav-right"
-navDownButton = document.getElementById "nav-down"
-deleteMoveButton = document.getElementById "delete-move"
 
 START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1"
 SQUARE_SIZE = 100
@@ -244,7 +238,7 @@ renderTreeTable = (root) ->
         colorClass = if node.move.color is "w" then " tree-white" else " tree-black"
         currentClass = if node is state.currentNode then " tree-current" else ""
         label = moveToAlgebraic parseFen(node.parent.fenAfter), node.move
-        "<td class=\"tree-cell\"><span class=\"tree-node#{colorClass}#{currentClass}\">#{escapeHtml(label)}</span></td>"
+        "<td class=\"tree-cell\"><span class=\"tree-node#{colorClass}#{currentClass}\" data-node-id=\"#{node.id}\">#{escapeHtml(label)}</span></td>"
     "<tr>#{cells.join("")}</tr>"
   "<table class=\"tree-table\"><tbody>#{htmlRows.join("")}</tbody></table>"
 
@@ -271,6 +265,14 @@ render = ->
   drawArrows()
   updatePanels()
 
+findNodeById = (node, id) ->
+  return null unless node?
+  return node if node.id is id
+  for child in node.children ? []
+    found = findNodeById child, id
+    return found if found?
+  null
+
 goToNextMove = ->
   child = selectedChild state.currentNode
   if child?
@@ -291,7 +293,11 @@ goToSibling = (delta) ->
     render()
 
 deleteCurrentSubtree = ->
-  return unless state.currentNode? and state.currentNode.parent?
+  return unless state.currentNode?
+  unless state.currentNode.parent?
+    freshTree state.acceptedFen
+    render()
+    return
   parent = state.currentNode.parent
   index = parent.children.indexOf state.currentNode
   return if index < 0
@@ -363,8 +369,7 @@ acceptCurrentPosition = ->
   render()
 
 resetTree = ->
-  freshTree state.acceptedFen
-  render()
+  deleteCurrentSubtree()
 
 pieceOnShownBoard = (square) ->
   parsePlacement(state.acceptedFen)[square]
@@ -396,6 +401,15 @@ boardEl.addEventListener "mousedown", (event) ->
 
   render()
 
+pathEl.addEventListener "click", (event) ->
+  nodeEl = event.target.closest ".tree-node[data-node-id]"
+  return unless nodeEl?
+  nodeId = Number nodeEl.dataset.nodeId
+  node = findNodeById state.root, nodeId
+  return unless node?
+  state.currentNode = node
+  render()
+
 window.addEventListener "keydown", (event) ->
   switch event.key
     when "ArrowRight"
@@ -415,13 +429,7 @@ window.addEventListener "keydown", (event) ->
       event.preventDefault()
 
 loadFenButton.addEventListener "click", loadFen
-acceptNodeButton.addEventListener "click", acceptCurrentPosition
 resetTreeButton.addEventListener "click", resetTree
-navLeftButton.addEventListener "click", goToPreviousMove
-navUpButton.addEventListener "click", -> goToSibling -1
-navRightButton.addEventListener "click", goToNextMove
-navDownButton.addEventListener "click", -> goToSibling 1
-deleteMoveButton.addEventListener "click", deleteCurrentSubtree
 
 fenInput.value = state.acceptedFen
 freshTree state.acceptedFen

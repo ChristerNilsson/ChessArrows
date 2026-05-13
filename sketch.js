@@ -5,13 +5,7 @@ const arrowsEl = document.getElementById("arrows");
 const pathEl = document.getElementById("path");
 const fenInput = document.getElementById("fen-input");
 const loadFenButton = document.getElementById("load-fen");
-const acceptNodeButton = document.getElementById("accept-node");
 const resetTreeButton = document.getElementById("reset-tree");
-const navLeftButton = document.getElementById("nav-left");
-const navUpButton = document.getElementById("nav-up");
-const navRightButton = document.getElementById("nav-right");
-const navDownButton = document.getElementById("nav-down");
-const deleteMoveButton = document.getElementById("delete-move");
 
 const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
 const SQUARE_SIZE = 100;
@@ -414,7 +408,7 @@ function renderTreeTable(root) {
       const colorClass = node.move.color === "w" ? " tree-white" : " tree-black";
       const currentClass = node === state.currentNode ? " tree-current" : "";
       const label = moveToAlgebraic(parseFen(node.parent.fenAfter), node.move);
-      cells.push(`<td class="tree-cell"><span class="tree-node${colorClass}${currentClass}">${escapeHtml(label)}</span></td>`);
+      cells.push(`<td class="tree-cell"><span class="tree-node${colorClass}${currentClass}" data-node-id="${node.id}">${escapeHtml(label)}</span></td>`);
     }
     return `<tr>${cells.join("")}</tr>`;
   });
@@ -456,6 +450,22 @@ function render() {
   updatePanels();
 }
 
+function findNodeById(node, id) {
+  if (!node) {
+    return null;
+  }
+  if (node.id === id) {
+    return node;
+  }
+  for (const child of node.children || []) {
+    const found = findNodeById(child, id);
+    if (found) {
+      return found;
+    }
+  }
+  return null;
+}
+
 function goToNextMove() {
   const child = selectedChild(state.currentNode);
   if (child) {
@@ -482,7 +492,13 @@ function goToSibling(delta) {
 }
 
 function deleteCurrentSubtree() {
-  if (!state.currentNode || !state.currentNode.parent) {
+  if (!state.currentNode) {
+    return;
+  }
+
+  if (!state.currentNode.parent) {
+    freshTree(state.acceptedFen);
+    render();
     return;
   }
 
@@ -937,8 +953,7 @@ function acceptCurrentPosition() {
 }
 
 function resetTree() {
-  freshTree(state.acceptedFen);
-  render();
+  deleteCurrentSubtree();
 }
 
 function pieceOnShownBoard(square) {
@@ -982,6 +997,20 @@ boardEl.addEventListener("mousedown", (event) => {
   render();
 });
 
+pathEl.addEventListener("click", (event) => {
+  const nodeEl = event.target.closest(".tree-node[data-node-id]");
+  if (!nodeEl) {
+    return;
+  }
+  const nodeId = Number(nodeEl.dataset.nodeId);
+  const node = findNodeById(state.root, nodeId);
+  if (!node) {
+    return;
+  }
+  state.currentNode = node;
+  render();
+});
+
 window.addEventListener("keydown", (event) => {
   if (event.key === "ArrowRight") {
     goToNextMove();
@@ -1002,13 +1031,7 @@ window.addEventListener("keydown", (event) => {
 });
 
 loadFenButton.addEventListener("click", loadFen);
-acceptNodeButton.addEventListener("click", acceptCurrentPosition);
 resetTreeButton.addEventListener("click", resetTree);
-navLeftButton.addEventListener("click", goToPreviousMove);
-navUpButton.addEventListener("click", () => goToSibling(-1));
-navRightButton.addEventListener("click", goToNextMove);
-navDownButton.addEventListener("click", () => goToSibling(1));
-deleteMoveButton.addEventListener("click", deleteCurrentSubtree);
 
 fenInput.value = state.acceptedFen;
 freshTree(state.acceptedFen);

@@ -54,7 +54,7 @@
 
       .toolbar {
         display: grid;
-        grid-template-columns: 1fr auto auto auto;
+        grid-template-columns: 1fr auto auto;
         gap: 10px;
         margin-bottom: 18px;
       }
@@ -211,6 +211,7 @@
 
       .tree-node {
         display: inline-block;
+        cursor: pointer;
       }
 
       .tree-card {
@@ -277,7 +278,7 @@
 
       @media (max-width: 840px) {
         .toolbar {
-          grid-template-columns: 1fr 1fr;
+          grid-template-columns: 1fr auto auto;
         }
 
         .layout {
@@ -292,7 +293,6 @@
       <section class="toolbar">
         <input id="fen-input" type="text" spellcheck="false" />
         <button id="load-fen" type="button">Ladda FEN</button>
-        <button id="accept-node" type="button">Acceptera ställning</button>
         <button id="reset-tree" type="button">Rensa</button>
       </section>
 
@@ -319,22 +319,6 @@
             <div id="path" class="path"></div>
           </section>
 
-          <section class="card">
-            <h2>Drag</h2>
-            <p class="legend">Klicka på startrutan och sedan på målrutan för att mata in ett drag.</p>
-          </section>
-
-          <section class="card">
-            <h2>Styrning</h2>
-            <p class="legend">⬅️ går till förra draget.<br />➡️ går till nästa drag.<br />⬆️ och ⬇️ växlar mellan alternativa drag.</p>
-            <div class="nav-pad" aria-label="Navigering">
-              <button id="nav-left" class="nav-btn nav-left" type="button" aria-label="Förra draget">⬅️</button>
-              <button id="nav-up" class="nav-btn nav-up" type="button" aria-label="Alternativ upp">⬆️</button>
-              <button id="nav-right" class="nav-btn nav-right" type="button" aria-label="Nästa drag">➡️</button>
-              <button id="nav-down" class="nav-btn nav-down" type="button" aria-label="Alternativ ner">⬇️</button>
-            </div>
-            <button id="delete-move" class="nav-btn" type="button" aria-label="Ta bort aktuellt drag" style="display:block; margin:12px auto 0; min-width:120px;">Delete</button>
-          </section>
         </aside>
       </section>
     </main>
