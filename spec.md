@@ -2,7 +2,7 @@ Ge mig ett javascript-program som gör följande:
 
 * Visar en position, tagen från FEN.
 * Låter användare skapa pilar mellan rutorna
-* Detta sker med hjälp av vänster musknapp samt drag and drop
+* Detta sker med hjälp av vänster musknapp samt drag and drop. Eller två musklick.
 * Vit och svart ska ha olika färger
 * På detta vis byggs ett träd upp, som ska synas, och ha klickbara drag
 * Ställningen som visas är den samma hela tiden.

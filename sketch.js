@@ -24,6 +24,7 @@ const state = {
   currentNode: null,
   selectedFrom: null,
   selectedBaseNode: null,
+  pointerDownSquare: null,
 };
 
 function createNode(parent, move, fenAfter) {
@@ -44,6 +45,7 @@ function freshTree(fen) {
   state.currentNode = root;
   state.selectedFrom = null;
   state.selectedBaseNode = null;
+  state.pointerDownSquare = null;
   return root;
 }
 
@@ -102,6 +104,15 @@ function parseFen(fen) {
   }
 
   const [placement, activeColor, castling, enPassant, halfmove = "0", fullmove = "1"] = parts;
+  if (!/^[wb]$/.test(activeColor)) {
+    throw new Error("Aktiv färg måste vara w eller b.");
+  }
+  if (!/^(?:-|K?Q?k?q?)$/.test(castling)) {
+    throw new Error("Ogiltiga rockadrättigheter i FEN.");
+  }
+  if (!/^(?:-|[a-h][36])$/.test(enPassant)) {
+    throw new Error("Ogiltig en passant-ruta i FEN.");
+  }
   const rows = placement.split("/");
   if (rows.length !== 8) {
     throw new Error("FEN måste ha åtta rader.");
@@ -114,6 +125,9 @@ function parseFen(fen) {
       if (/\d/.test(char)) {
         fileIndex += Number(char);
       } else {
+        if (!/[prnbqkPRNBQK]/.test(char) || fileIndex > 7) {
+          throw new Error("Ogiltig pjäsplacering i FEN.");
+        }
         const square = `${FILES[fileIndex]}${8 - rowIndex}`;
         board[square] = char;
         fileIndex += 1;
@@ -123,6 +137,11 @@ function parseFen(fen) {
       throw new Error("Ogiltig rad i FEN.");
     }
   });
+
+  if (Object.values(board).filter((piece) => piece === "K").length !== 1 ||
+      Object.values(board).filter((piece) => piece === "k").length !== 1) {
+    throw new Error("FEN måste innehålla exakt en vit och en svart kung.");
+  }
 
   return {
     board,
@@ -496,6 +515,8 @@ function goToNextMove() {
   const child = selectedChild(state.currentNode);
   if (child) {
     state.currentNode = child;
+    state.selectedFrom = null;
+    state.selectedBaseNode = null;
     render();
   }
 }
@@ -503,6 +524,8 @@ function goToNextMove() {
 function goToPreviousMove() {
   if (state.currentNode.parent) {
     state.currentNode = state.currentNode.parent;
+    state.selectedFrom = null;
+    state.selectedBaseNode = null;
     render();
   }
 }
@@ -513,6 +536,8 @@ function goToSibling(delta) {
     const count = siblings.length;
     const index = currentSiblingIndex();
     state.currentNode = siblings[(index + delta + count) % count];
+    state.selectedFrom = null;
+    state.selectedBaseNode = null;
     render();
   }
 }
@@ -738,6 +763,9 @@ function basicMoveOk(position, from, to) {
   if (targetPiece && pieceColor(targetPiece) === color) {
     return null;
   }
+  if (targetPiece && pieceType(targetPiece) === "k") {
+    return null;
+  }
 
   const fromCoords = squareToCoords(from);
   const toCoords = squareToCoords(to);
@@ -818,22 +846,22 @@ function basicMoveOk(position, from, to) {
 
     const rights = position.castling === "-" ? "" : position.castling;
     if (color === "w" && from === "e1" && to === "g1" && rights.includes("K")) {
-      if (!position.board.f1 && !position.board.g1) {
+      if (position.board.h1 === "R" && !position.board.f1 && !position.board.g1) {
         return { from, to, color, promotion: null, isCastle: true };
       }
     }
     if (color === "w" && from === "e1" && to === "c1" && rights.includes("Q")) {
-      if (!position.board.d1 && !position.board.c1 && !position.board.b1) {
+      if (position.board.a1 === "R" && !position.board.d1 && !position.board.c1 && !position.board.b1) {
         return { from, to, color, promotion: null, isCastle: true };
       }
     }
     if (color === "b" && from === "e8" && to === "g8" && rights.includes("k")) {
-      if (!position.board.f8 && !position.board.g8) {
+      if (position.board.h8 === "r" && !position.board.f8 && !position.board.g8) {
         return { from, to, color, promotion: null, isCastle: true };
       }
     }
     if (color === "b" && from === "e8" && to === "c8" && rights.includes("q")) {
-      if (!position.board.d8 && !position.board.c8 && !position.board.b8) {
+      if (position.board.a8 === "r" && !position.board.d8 && !position.board.c8 && !position.board.b8) {
         return { from, to, color, promotion: null, isCastle: true };
       }
     }
@@ -1007,12 +1035,13 @@ function dragBaseNodeForSquare(square) {
   return null;
 }
 
-boardEl.addEventListener("mousedown", (event) => {
+boardEl.addEventListener("pointerdown", (event) => {
   const squareEl = event.target.closest(".square");
   if (!squareEl) {
     return;
   }
   const square = squareEl.dataset.square;
+  state.pointerDownSquare = square;
   const baseNode = dragBaseNodeForSquare(square);
 
   if (event.button !== 0 || !baseNode) {
@@ -1020,23 +1049,44 @@ boardEl.addEventListener("mousedown", (event) => {
   }
   state.selectedFrom = square;
   state.selectedBaseNode = baseNode;
+  boardEl.setPointerCapture?.(event.pointerId);
   render();
   event.preventDefault();
 });
 
-boardEl.addEventListener("mouseup", (event) => {
+boardEl.addEventListener("pointerup", (event) => {
   if (event.button !== 0 || !state.selectedFrom) return;
-  const squareEl = event.target.closest(".square");
+  const hit = document.elementFromPoint(event.clientX, event.clientY);
+  const squareEl = hit?.closest(".square");
   const from = state.selectedFrom;
   const baseNode = state.selectedBaseNode;
-  state.selectedFrom = null;
-  state.selectedBaseNode = null;
-  if (baseNode && squareEl && squareEl.dataset.square !== from) {
-    const move = legalMoveFromNode(baseNode, from, squareEl.dataset.square);
-    if (move) addOrSelectChild(baseNode, move);
+  const to = squareEl?.dataset.square;
+
+  // Ett tryck och släpp på samma ruta är första halvan av två-klicksläget.
+  if (to === from && state.pointerDownSquare === from) {
+    state.pointerDownSquare = null;
+    render();
+    return;
   }
+
+  if (baseNode && to && to !== from) {
+    const move = legalMoveFromNode(baseNode, from, squareEl.dataset.square);
+    if (move) {
+      addOrSelectChild(baseNode, move);
+      state.selectedFrom = null;
+      state.selectedBaseNode = null;
+    }
+  }
+  state.pointerDownSquare = null;
   render();
   event.preventDefault();
+});
+
+boardEl.addEventListener("pointercancel", () => {
+  state.pointerDownSquare = null;
+  state.selectedFrom = null;
+  state.selectedBaseNode = null;
+  render();
 });
 
 pathEl.addEventListener("click", (event) => {
@@ -1045,6 +1095,8 @@ pathEl.addEventListener("click", (event) => {
   const node = findNodeById(state.root, Number(nodeEl.dataset.nodeId));
   if (!node) return;
   state.currentNode = node;
+  state.selectedFrom = null;
+  state.selectedBaseNode = null;
   render();
 });
 
