@@ -7,7 +7,8 @@ const fenInput = document.getElementById("fen-input");
 const loadFenButton = document.getElementById("load-fen");
 const resetTreeButton = document.getElementById("reset-tree");
 
-const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
+// const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
+const START_FEN = "2k3rr/ppp1npb1/2Pp4/P7/1PBP4/2P2QBq/7P/R4RK1 w - - 0 1";
 const SQUARE_SIZE = 100;
 const ARROW_RADIUS = SQUARE_SIZE / 4;
 const ARROW_WIDTH = SQUARE_SIZE / 10;
