@@ -13,11 +13,12 @@ const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
 const SQUARE_SIZE = 100;
 const ARROW_RADIUS = SQUARE_SIZE / 4;
 const ARROW_WIDTH = SQUARE_SIZE / 10;
+const ARROW_HEAD_LENGTH = 21.65;
 const PREVIEW_ARROW_WIDTH = SQUARE_SIZE / 12;
-const CURVE_OFFSET_STEP = SQUARE_SIZE * 0.1;
-const LABEL_DIAMETER = CURVE_OFFSET_STEP * 3;
+const D = SQUARE_SIZE * 0.1;
+const PARALLEL_OFFSET_STEP = SQUARE_SIZE * 0.25;
+const LABEL_DIAMETER = D * 3;
 const LABEL_RADIUS = LABEL_DIAMETER / 2;
-const LABEL_DIAMETER_WITH_BORDER = LABEL_DIAMETER + 1;
 const LICHESS_PIECE_BASE_URL = "https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett";
 
 let nodeId = 0;
@@ -343,7 +344,7 @@ function clearArrows() {
   Array.from(arrowsEl.querySelectorAll(".move-arrow, .move-label")).forEach((element) => element.remove());
 }
 
-function arrowGeometry(from, to, bend = 0, labelPosition = 0.5) {
+function arrowGeometry(from, to, offset = 0) {
   const start = squareCenter(from);
   const stop = squareCenter(to);
   const dx = stop.x - start.x;
@@ -354,93 +355,31 @@ function arrowGeometry(from, to, bend = 0, labelPosition = 0.5) {
   }
   const ux = dx / length;
   const uy = dy / length;
-  // A quadratic Bezier reaches half the control-point offset at t = 0.5.
-  // Doubling here makes `bend` the curve's actual distance from the straight
-  // arrow at its midpoint.
-  const labelControlX = (start.x + stop.x) / 2 - uy * bend * 2;
-  const labelControlY = (start.y + stop.y) / 2 + ux * bend * 2;
-  const pointAt = (t) => {
-    const oneMinusT = 1 - t;
-    return {
-      x: oneMinusT * oneMinusT * start.x + 2 * oneMinusT * t * labelControlX + t * t * stop.x,
-      y: oneMinusT * oneMinusT * start.y + 2 * oneMinusT * t * labelControlY + t * t * stop.y,
-    };
+  const normalX = -uy;
+  const normalY = ux;
+  // Move to the nearest 25/75-percent line inside the start and target
+  // squares. On diagonals this keeps the endpoints on the move line while
+  // making at least one board coordinate exactly 25% or 75%.
+  const trim = Math.min(ARROW_RADIUS / Math.max(Math.abs(ux), Math.abs(uy)), length * 0.45);
+  const shiftedStart = {
+    x: start.x + normalX * offset,
+    y: start.y + normalY * offset,
   };
-  const trim = Math.min(ARROW_RADIUS / length, 0.45);
-  const endTrim = 1 - trim;
-  const firstPoint = pointAt(trim);
-  const lastPoint = pointAt(endTrim);
-  const span = endTrim - trim;
-  const tangentX = (1 - trim) * (labelControlX - start.x) + trim * (stop.x - labelControlX);
-  const tangentY = (1 - trim) * (labelControlY - start.y) + trim * (stop.y - labelControlY);
-  const x1 = firstPoint.x;
-  const y1 = firstPoint.y;
-  const x2 = lastPoint.x;
-  const y2 = lastPoint.y;
-  const controlX = x1 + span * tangentX;
-  const controlY = y1 + span * tangentY;
+  const x1 = shiftedStart.x + ux * trim;
+  const y1 = shiftedStart.y + uy * trim;
+  const markerTrim = Math.min(trim + ARROW_HEAD_LENGTH, length - trim);
+  const x2 = stop.x + normalX * offset - ux * markerTrim;
+  const y2 = stop.y + normalY * offset - uy * markerTrim;
   const geometry = {
-    path: bend
-      ? `M ${x1} ${y1} Q ${controlX} ${controlY} ${x2} ${y2}`
-      : `M ${x1} ${y1} L ${x2} ${y2}`,
-    x1, y1, x2, y2, controlX, controlY,
-    labelX1: start.x,
-    labelY1: start.y,
-    labelX2: stop.x,
-    labelY2: stop.y,
-    labelControlX,
-    labelControlY,
+    path: `M ${x1} ${y1} L ${x2} ${y2}`,
+    x1, y1, x2, y2,
+    labelX: x1,
+    labelY: y1,
   };
-  setLabelPosition(geometry, labelPosition);
   return geometry;
 }
 
-function setLabelPosition(geometry, t) {
-  const oneMinusT = 1 - t;
-  geometry.labelPosition = t;
-  geometry.labelX = oneMinusT * oneMinusT * geometry.labelX1 +
-    2 * oneMinusT * t * geometry.labelControlX + t * t * geometry.labelX2;
-  geometry.labelY = oneMinusT * oneMinusT * geometry.labelY1 +
-    2 * oneMinusT * t * geometry.labelControlY + t * t * geometry.labelY2;
-}
-
-function labelsOverlap(first, second) {
-  return Math.hypot(first.labelX - second.labelX, first.labelY - second.labelY) <
-    LABEL_DIAMETER_WITH_BORDER;
-}
-
-function separateMoveLabels(geometries) {
-  geometries.forEach((geometry, index) => {
-    if (!geometry) return;
-    const earlier = geometries.slice(0, index).filter(Boolean);
-    if (!earlier.some((candidate) => labelsOverlap(geometry, candidate))) return;
-
-    let bestPosition = geometry.labelPosition;
-    let bestClearance = -Infinity;
-    let bestIsClear = false;
-    for (let step = 4; step <= 196; step += 1) {
-      const candidatePosition = step * 0.005;
-      setLabelPosition(geometry, candidatePosition);
-      const clearance = Math.min(...earlier.map((candidate) =>
-        Math.hypot(geometry.labelX - candidate.labelX, geometry.labelY - candidate.labelY)
-      ));
-      const isClear = clearance >= LABEL_DIAMETER_WITH_BORDER;
-      const nearerMiddle = Math.abs(candidatePosition - 0.5) < Math.abs(bestPosition - 0.5);
-      if ((isClear && !bestIsClear) ||
-          (isClear === bestIsClear && isClear && nearerMiddle) ||
-          (!isClear && !bestIsClear &&
-           (clearance > bestClearance + 0.01 ||
-            (Math.abs(clearance - bestClearance) <= 0.01 && nearerMiddle)))) {
-        bestPosition = candidatePosition;
-        bestClearance = clearance;
-        bestIsClear = isClear;
-      }
-    }
-    setLabelPosition(geometry, bestPosition);
-  });
-}
-
-function buildArrow(geometry, color, markerId, width, opacity, centerLineColor = null) {
+function buildArrow(geometry, color, markerId, width, opacity) {
   if (!geometry) return;
 
   const outlineColor = color === "#f7f7f7" ? "#232323" : "#f7f7f7";
@@ -464,18 +403,6 @@ function buildArrow(geometry, color, markerId, width, opacity, centerLineColor =
   path.setAttribute("marker-end", `url(#${markerId})`);
   path.setAttribute("opacity", opacity);
   arrowsEl.appendChild(path);
-
-  if (centerLineColor) {
-    const centerLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
-    centerLine.classList.add("move-arrow");
-    centerLine.setAttribute("d", geometry.path);
-    centerLine.setAttribute("fill", "none");
-    centerLine.setAttribute("stroke", centerLineColor);
-    centerLine.setAttribute("stroke-width", Math.max(2, width / 5));
-    centerLine.setAttribute("stroke-linecap", "round");
-    centerLine.setAttribute("opacity", 0.95);
-    arrowsEl.appendChild(centerLine);
-  }
 
 }
 
@@ -505,25 +432,52 @@ function buildMoveLabel(geometry, color, label) {
   arrowsEl.appendChild(text);
 }
 
-function arrowsOverlap(firstMove, secondMove) {
-  const a = squareCenter(firstMove.from);
-  const b = squareCenter(firstMove.to);
-  const c = squareCenter(secondMove.from);
-  const d = squareCenter(secondMove.to);
-  const ab = { x: b.x - a.x, y: b.y - a.y };
-  const cross = (left, right) => left.x * right.y - left.y * right.x;
-
-  // Only arrows on the same infinite line can obscure one another for
-  // a meaningful distance. Merely meeting at one square is not an overlap.
-  if (cross(ab, { x: c.x - a.x, y: c.y - a.y }) !== 0 ||
-      cross(ab, { x: d.x - a.x, y: d.y - a.y }) !== 0) {
-    return false;
+function moveLineKey(move) {
+  const from = squareToCoords(move.from);
+  const to = squareToCoords(move.to);
+  let dx = to.file - from.file;
+  let dy = to.rank - from.rank;
+  const gcd = (a, b) => b === 0 ? Math.abs(a) : gcd(b, a % b);
+  const divisor = gcd(Math.abs(dx), Math.abs(dy)) || 1;
+  dx /= divisor;
+  dy /= divisor;
+  if (dx < 0 || (dx === 0 && dy < 0)) {
+    dx *= -1;
+    dy *= -1;
   }
+  return `${dx},${dy},${dx * from.rank - dy * from.file}`;
+}
 
-  const useX = Math.abs(ab.x) >= Math.abs(ab.y);
-  const first = [useX ? a.x : a.y, useX ? b.x : b.y].sort((x, y) => x - y);
-  const second = [useX ? c.x : c.y, useX ? d.x : d.y].sort((x, y) => x - y);
-  return Math.min(first[1], second[1]) - Math.max(first[0], second[0]) > 0;
+function assignArrowLanes(path) {
+  const lanes = Array(path.length).fill(0);
+  const lineKeys = path.map((node) => moveLineKey(node.move));
+  const groups = new Map();
+
+  path.forEach((node, index) => {
+    const from = squareToCoords(node.move.from);
+    const to = squareToCoords(node.move.to);
+    const useFile = to.file !== from.file;
+    const first = useFile ? from.file : from.rank;
+    const second = useFile ? to.file : to.rank;
+    const item = { index, start: Math.min(first, second), end: Math.max(first, second) };
+    const key = lineKeys[index];
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(item);
+  });
+
+  const laneCounts = new Map();
+  groups.forEach((items, key) => {
+    const laneEnds = [];
+    items.sort((a, b) => a.start - b.start || a.end - b.end || a.index - b.index);
+    items.forEach((item) => {
+      let lane = laneEnds.findIndex((end) => end <= item.start);
+      if (lane < 0) lane = laneEnds.length;
+      lanes[item.index] = lane;
+      laneEnds[lane] = item.end;
+    });
+    laneCounts.set(key, laneEnds.length);
+  });
+  return { lanes, lineKeys, laneCounts };
 }
 
 function drawArrows() {
@@ -531,31 +485,23 @@ function drawArrows() {
 
   const path = pathToCurrent();
   const currentIndex = path.length - 1;
+  const { lanes, lineKeys, laneCounts } = assignArrowLanes(path);
   const geometries = path.map((node, index) => {
-    const overlappingIndexes = path
-      .map((candidate, candidateIndex) =>
-        candidateIndex !== index && arrowsOverlap(node.move, candidate.move) ? candidateIndex : -1
-      )
-      .filter((candidateIndex) => candidateIndex >= 0);
-    const occurrence = overlappingIndexes.filter((candidateIndex) => candidateIndex < index).length;
-    let bend = overlappingIndexes.length
-      ? (occurrence % 2 === 0 ? 1 : -1) * CURVE_OFFSET_STEP * (occurrence + 1)
-      : 0;
-    // Use the same geometric normal for both directions of a square pair.
-    // Otherwise A-B and B-A would curve onto the same side and overlap.
+    const laneCount = laneCounts.get(lineKeys[index]);
+    const centeredLane = lanes[index] - (laneCount - 1) / 2;
+    let offset = centeredLane * PARALLEL_OFFSET_STEP;
+    // Use one canonical normal for both directions along the same line.
     if (node.move.from > node.move.to) {
-      bend *= -1;
+      offset *= -1;
     }
-    return arrowGeometry(node.move.from, node.move.to, bend, 0.5);
+    return arrowGeometry(node.move.from, node.move.to, offset);
   });
-  separateMoveLabels(geometries);
 
   path.forEach((node, index) => {
     const color = node.move.color === "w" ? "#f7f7f7" : "#232323";
     const markerId = node.move.color === "w" ? "arrow-white" : "arrow-black";
     const opacity = index === currentIndex ? 0.95 : 0.9;
-    const centerLineColor = index === currentIndex ? "#3aa655" : null;
-    buildArrow(geometries[index], color, markerId, ARROW_WIDTH, opacity, centerLineColor);
+    buildArrow(geometries[index], color, markerId, ARROW_WIDTH, opacity);
   });
 
   path.forEach((node, index) => {

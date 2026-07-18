@@ -12,18 +12,21 @@ Ge mig ett javascript-program som gör följande:
 * För att bläddra bland alternativen används vertikala pilar.
 * För att bläddra bland dragen används horisontella pilar.
 * Man ska när som helst kunna acceptera en ställning som aktuell ställning.
+
 * Rita dragets nummer på varje pil i rätt färg. 
-* Vid behov ska pilen ritas böjd. Detta gäller ffa vid returdrag.
-* Pilens böjning kan skötas med en Bezier-kurva. Lämpligen placeras mittpunkten vid halva pilen.
-* Cirklarna ska placeras nära pilens mitt och förskjutas längs bezierkurvan för att undvika överlappning med andra cirklar.
+* Startpunkt ska alltid vara 25% eller 75%. Minimera pilarnas längd
+* Förhindra att pilarna ritas ovanpå varandra genom att parallellförflytta dem
+* Dragnumret placeras där pilen startar
 * d = 0.1 av en rutas storlek
-* Cirklarna har diametern 3d. 
-* Om en pjäs rör sig a1-a8-a2 bör böjd pil användas.
-* Placera första draget på 50% av avståndet (mellan Från och Till) och andra på 50% av avståndet. Inuti en cirkel med dragets färg. Cirklarnas periferi bör vara 1 pixel.
-* Kurvornas avstånd från den raka pilen bör öka enligt en aritmetisk serie: d, -2d, +3d, -4d osv
-* Vid alla returer, se till att cirklarna är ungefär lika långt från den egna pilen.
+* Cirklarna har diametern 3d och har dragets färg. Deras periferi bör vara 1 pixel.
+* Om en pjäs rör sig a1-a8-a2 ska raka parallellförflyttade pilar användas. Avstånd mellan dem: 25%. Pilarnas längd: 25% + 600% + 25%
+* Om tre linjer behöver dras, rita dem i ordning. A-B 25% B-A 50% A-B 75%
 * Rita alla pilar i ett första pass. Rita sedan alla nummer i cirklar i ett andra pass. 
 * Pilarna bör ha en periferi på 1 pixel i motsatt färg.
+* Om vi har ett torn som rör sig stokastiskt fram och tillbaks på t ex a-linjen, se till att återanvända linjeutrymmet maximalt. 
+* Gör tornet sju smådrag, kan de gå in på en enda linje. T ex 1 2 3 4 5 6 7 8
+* Men det kan också tvingas gå in på sju linjer. T ex 1 8 2 7 3 6 4 5
+
 * Man ska bara se pilarna från startställningen till aktuellt drag.
 * Den aktuella ställningen ska påverkas av vilka drag man gjort. T ex ska man kunna göra Kh3 följt av Kh4
 * Om jag precis utfört ett vitt drag och gör ett till vitt drag ska båda dragen vara med i trädet. De utgör alternativ.
