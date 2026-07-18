@@ -14,11 +14,13 @@ Ge mig ett javascript-program som gör följande:
 * Man ska när som helst kunna acceptera en ställning som aktuell ställning.
 * Rita dragets nummer på varje pil i rätt färg. 
 * Vid behov ska pilen ritas böjd. Detta gäller ffa vid returdrag.
-* Pilens böjning kan skötas med en Bezier-kurva. Lämpligen placeras mittpunkten vid halva pilen och d = 0.3 rutbredder ut.
-* Vid A, B, A, B, A, B bör d förslagsvis vara -0.3, 0.3, -0.6, 0.6, -0.9, 0.9. Gör det som blir naturligast.
+* Pilens böjning kan skötas med en Bezier-kurva. Lämpligen placeras mittpunkten vid halva pilen.
+* Cirklarna ska placeras nära pilens mitt och förskjutas längs bezierkurvan för att undvika överlappning med andra cirklar.
+* d = 0.1 av en rutas storlek
+* Cirklarna har diametern 3d. 
 * Om en pjäs rör sig a1-a8-a2 bör böjd pil användas.
-* Placera draget på 50% i första hand av avståndet mellan Från och Till. Inuti en cirkel med dragets färg. Cirklarnas periferi bör vara 1 pixel.
-* Om cirklarna överlappar, låt dem glid minsta möjliga sträcka för att inte överlappa.
+* Placera första draget på 50% av avståndet (mellan Från och Till) och andra på 50% av avståndet. Inuti en cirkel med dragets färg. Cirklarnas periferi bör vara 1 pixel.
+* Kurvornas avstånd från den raka pilen bör öka enligt en aritmetisk serie: d, -2d, +3d, -4d osv
 * Vid alla returer, se till att cirklarna är ungefär lika långt från den egna pilen.
 * Rita alla pilar i ett första pass. Rita sedan alla nummer i cirklar i ett andra pass. 
 * Pilarna bör ha en periferi på 1 pixel i motsatt färg.
