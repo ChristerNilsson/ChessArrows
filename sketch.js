@@ -14,6 +14,8 @@ const SQUARE_SIZE = 100;
 const ARROW_RADIUS = SQUARE_SIZE / 4;
 const ARROW_WIDTH = SQUARE_SIZE / 10;
 const PREVIEW_ARROW_WIDTH = SQUARE_SIZE / 12;
+const LABEL_RADIUS = 23;
+const LABEL_DIAMETER_WITH_BORDER = LABEL_RADIUS * 2 + 1;
 const LICHESS_PIECE_BASE_URL = "https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett";
 
 let nodeId = 0;
@@ -336,17 +338,17 @@ function drawBoard() {
 }
 
 function clearArrows() {
-  Array.from(arrowsEl.querySelectorAll("line, circle, text")).forEach((element) => element.remove());
+  Array.from(arrowsEl.querySelectorAll(".move-arrow, .move-label")).forEach((element) => element.remove());
 }
 
-function buildArrow(from, to, color, markerId, width, opacity, centerLineColor = null) {
+function arrowGeometry(from, to, bend = 0, labelPosition = 0.5) {
   const start = squareCenter(from);
   const stop = squareCenter(to);
   const dx = stop.x - start.x;
   const dy = stop.y - start.y;
   const length = Math.hypot(dx, dy);
   if (!length) {
-    return;
+    return null;
   }
   const ux = dx / length;
   const uy = dy / length;
@@ -354,25 +356,127 @@ function buildArrow(from, to, color, markerId, width, opacity, centerLineColor =
   const y1 = start.y + uy * ARROW_RADIUS;
   const x2 = stop.x - ux * ARROW_RADIUS;
   const y2 = stop.y - uy * ARROW_RADIUS;
+  const controlX = (x1 + x2) / 2 - uy * bend * SQUARE_SIZE;
+  const controlY = (y1 + y2) / 2 + ux * bend * SQUARE_SIZE;
+  const geometry = {
+    path: bend
+      ? `M ${x1} ${y1} Q ${controlX} ${controlY} ${x2} ${y2}`
+      : `M ${x1} ${y1} L ${x2} ${y2}`,
+    x1, y1, x2, y2, controlX, controlY,
+  };
+  setLabelPosition(geometry, labelPosition);
+  return geometry;
+}
 
-  const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
-  line.setAttribute("x1", x1);
-  line.setAttribute("y1", y1);
-  line.setAttribute("x2", x2);
-  line.setAttribute("y2", y2);
-  line.setAttribute("stroke", color);
-  line.setAttribute("stroke-width", width);
-  line.setAttribute("stroke-linecap", "round");
-  line.setAttribute("marker-end", `url(#${markerId})`);
-  line.setAttribute("opacity", opacity);
-  arrowsEl.appendChild(line);
+function setLabelPosition(geometry, t) {
+  const oneMinusT = 1 - t;
+  geometry.labelPosition = t;
+  geometry.labelX = oneMinusT * oneMinusT * geometry.x1 +
+    2 * oneMinusT * t * geometry.controlX + t * t * geometry.x2;
+  geometry.labelY = oneMinusT * oneMinusT * geometry.y1 +
+    2 * oneMinusT * t * geometry.controlY + t * t * geometry.y2;
+}
+
+function labelsOverlap(first, second) {
+  return Math.hypot(first.labelX - second.labelX, first.labelY - second.labelY) <
+    LABEL_DIAMETER_WITH_BORDER;
+}
+
+function separateMoveLabels(geometries) {
+  geometries.forEach((geometry, index) => {
+    if (!geometry) return;
+    const earlier = geometries.slice(0, index).filter(Boolean);
+    const collidingEarlier = earlier.filter((candidate) => labelsOverlap(geometry, candidate));
+    if (!collidingEarlier.length) return;
+
+    // Return/overlap arrows are handled as a pair below so neither label is
+    // favored, regardless of how long the arrows are.
+    if (geometry.isReturn || collidingEarlier.some((candidate) => candidate.isReturn)) return;
+
+    // Try equal steps on either side of the midpoint. The first collision-free
+    // candidate is therefore the smallest movement along this arrow.
+    for (let step = 1; step <= 70; step += 1) {
+      const distance = step * 0.005;
+      for (const direction of [-1, 1]) {
+        const candidatePosition = 0.5 + direction * distance;
+        if (candidatePosition < 0.15 || candidatePosition > 0.85) continue;
+        setLabelPosition(geometry, candidatePosition);
+        if (!earlier.some((candidate) => labelsOverlap(geometry, candidate))) return;
+      }
+    }
+
+    // Leave unresolved collisions centered for the symmetric pass below.
+    setLabelPosition(geometry, 0.5);
+  });
+
+  // If return arrows still collide, share the minimum correction
+  // equally. Both labels then remain approximately equally far from their
+  // respective arrows instead of pushing only the later label aside.
+  for (let attempt = 0; attempt < 1000; attempt += 1) {
+    let collision = null;
+    for (let firstIndex = 0; firstIndex < geometries.length && !collision; firstIndex += 1) {
+      if (!geometries[firstIndex]) continue;
+      for (let secondIndex = firstIndex + 1; secondIndex < geometries.length; secondIndex += 1) {
+        if (geometries[secondIndex] && labelsOverlap(geometries[firstIndex], geometries[secondIndex])) {
+          collision = [geometries[firstIndex], geometries[secondIndex]];
+          break;
+        }
+      }
+    }
+    if (!collision) return;
+
+    const [first, second] = collision;
+    let dx = second.labelX - first.labelX;
+    let dy = second.labelY - first.labelY;
+    let distance = Math.hypot(dx, dy);
+    if (!distance) {
+      dx = -(second.y2 - second.y1);
+      dy = second.x2 - second.x1;
+      const directionLength = Math.hypot(dx, dy) || 1;
+      dx /= directionLength;
+      dy /= directionLength;
+    } else {
+      dx /= distance;
+      dy /= distance;
+    }
+    const shiftPerLabel = (LABEL_DIAMETER_WITH_BORDER - distance + 0.01) / 2;
+    first.labelX -= dx * shiftPerLabel;
+    first.labelY -= dy * shiftPerLabel;
+    second.labelX += dx * shiftPerLabel;
+    second.labelY += dy * shiftPerLabel;
+  }
+}
+
+function buildArrow(geometry, color, markerId, width, opacity, centerLineColor = null) {
+  if (!geometry) return;
+
+  const outlineColor = color === "#f7f7f7" ? "#232323" : "#f7f7f7";
+  const outline = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  outline.classList.add("move-arrow");
+  outline.setAttribute("d", geometry.path);
+  outline.setAttribute("fill", "none");
+  outline.setAttribute("stroke", outlineColor);
+  outline.setAttribute("stroke-width", width + 2);
+  outline.setAttribute("stroke-linecap", "round");
+  outline.setAttribute("opacity", opacity);
+  arrowsEl.appendChild(outline);
+
+  const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.classList.add("move-arrow");
+  path.setAttribute("d", geometry.path);
+  path.setAttribute("fill", "none");
+  path.setAttribute("stroke", color);
+  path.setAttribute("stroke-width", width);
+  path.setAttribute("stroke-linecap", "round");
+  path.setAttribute("marker-end", `url(#${markerId})`);
+  path.setAttribute("opacity", opacity);
+  arrowsEl.appendChild(path);
 
   if (centerLineColor) {
-    const centerLine = document.createElementNS("http://www.w3.org/2000/svg", "line");
-    centerLine.setAttribute("x1", x1);
-    centerLine.setAttribute("y1", y1);
-    centerLine.setAttribute("x2", x2);
-    centerLine.setAttribute("y2", y2);
+    const centerLine = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    centerLine.classList.add("move-arrow");
+    centerLine.setAttribute("d", geometry.path);
+    centerLine.setAttribute("fill", "none");
     centerLine.setAttribute("stroke", centerLineColor);
     centerLine.setAttribute("stroke-width", Math.max(2, width / 5));
     centerLine.setAttribute("stroke-linecap", "round");
@@ -382,24 +486,22 @@ function buildArrow(from, to, color, markerId, width, opacity, centerLineColor =
 
 }
 
-function buildMoveLabel(from, to, color, label) {
-  const start = squareCenter(from);
-  const stop = squareCenter(to);
-  const labelX = start.x + (stop.x - start.x) * 0.4;
-  const labelY = start.y + (stop.y - start.y) * 0.4;
-
+function buildMoveLabel(geometry, color, label) {
+  if (!geometry) return;
   const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-  circle.setAttribute("cx", labelX);
-  circle.setAttribute("cy", labelY);
-  circle.setAttribute("r", 23);
+  circle.classList.add("move-label");
+  circle.setAttribute("cx", geometry.labelX);
+  circle.setAttribute("cy", geometry.labelY);
+  circle.setAttribute("r", LABEL_RADIUS);
   circle.setAttribute("fill", color);
   circle.setAttribute("stroke", color === "#f7f7f7" ? "#232323" : "#f7f7f7");
-  circle.setAttribute("stroke-width", 4);
+  circle.setAttribute("stroke-width", 1);
   arrowsEl.appendChild(circle);
 
   const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
-  text.setAttribute("x", labelX);
-  text.setAttribute("y", labelY);
+  text.classList.add("move-label");
+  text.setAttribute("x", geometry.labelX);
+  text.setAttribute("y", geometry.labelY);
   text.setAttribute("fill", color === "#f7f7f7" ? "#232323" : "#f7f7f7");
   text.setAttribute("text-anchor", "middle");
   text.setAttribute("dominant-baseline", "central");
@@ -410,22 +512,64 @@ function buildMoveLabel(from, to, color, label) {
   arrowsEl.appendChild(text);
 }
 
+function arrowsOverlap(firstMove, secondMove) {
+  const a = squareCenter(firstMove.from);
+  const b = squareCenter(firstMove.to);
+  const c = squareCenter(secondMove.from);
+  const d = squareCenter(secondMove.to);
+  const ab = { x: b.x - a.x, y: b.y - a.y };
+  const cross = (left, right) => left.x * right.y - left.y * right.x;
+
+  // Only arrows on the same infinite line can obscure one another for
+  // a meaningful distance. Merely meeting at one square is not an overlap.
+  if (cross(ab, { x: c.x - a.x, y: c.y - a.y }) !== 0 ||
+      cross(ab, { x: d.x - a.x, y: d.y - a.y }) !== 0) {
+    return false;
+  }
+
+  const useX = Math.abs(ab.x) >= Math.abs(ab.y);
+  const first = [useX ? a.x : a.y, useX ? b.x : b.y].sort((x, y) => x - y);
+  const second = [useX ? c.x : c.y, useX ? d.x : d.y].sort((x, y) => x - y);
+  return Math.min(first[1], second[1]) - Math.max(first[0], second[0]) > 0;
+}
+
 function drawArrows() {
   clearArrows();
 
   const path = pathToCurrent();
   const currentIndex = path.length - 1;
+  const geometries = path.map((node, index) => {
+    const overlappingIndexes = path
+      .map((candidate, candidateIndex) =>
+        candidateIndex !== index && arrowsOverlap(node.move, candidate.move) ? candidateIndex : -1
+      )
+      .filter((candidateIndex) => candidateIndex >= 0);
+    const occurrence = overlappingIndexes.filter((candidateIndex) => candidateIndex < index).length;
+    let bend = overlappingIndexes.length
+      ? (occurrence % 2 === 0 ? -1 : 1) * 0.3 * (Math.floor(occurrence / 2) + 1)
+      : 0;
+    // Use the same geometric normal for both directions of a square pair.
+    // Otherwise A-B and B-A would curve onto the same side and overlap.
+    if (node.move.from > node.move.to) {
+      bend *= -1;
+    }
+    const geometry = arrowGeometry(node.move.from, node.move.to, bend, 1 / 2);
+    geometry.isReturn = overlappingIndexes.length > 0;
+    return geometry;
+  });
+  separateMoveLabels(geometries);
+
   path.forEach((node, index) => {
     const color = node.move.color === "w" ? "#f7f7f7" : "#232323";
     const markerId = node.move.color === "w" ? "arrow-white" : "arrow-black";
     const opacity = index === currentIndex ? 0.95 : 0.9;
     const centerLineColor = index === currentIndex ? "#3aa655" : null;
-    buildArrow(node.move.from, node.move.to, color, markerId, ARROW_WIDTH, opacity, centerLineColor);
+    buildArrow(geometries[index], color, markerId, ARROW_WIDTH, opacity, centerLineColor);
   });
 
   path.forEach((node, index) => {
     const color = node.move.color === "w" ? "#f7f7f7" : "#232323";
-    buildMoveLabel(node.move.from, node.move.to, color, index + 1);
+    buildMoveLabel(geometries[index], color, index + 1);
   });
 
 }
