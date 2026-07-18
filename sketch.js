@@ -6,9 +6,10 @@ const pathEl = document.getElementById("path");
 const fenInput = document.getElementById("fen-input");
 const loadFenButton = document.getElementById("load-fen");
 const resetTreeButton = document.getElementById("reset-tree");
+const acceptPositionButton = document.getElementById("accept-position");
 
-// const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
-const START_FEN = "2k3rr/ppp1npb1/2Pp4/P7/1PBP4/2P2QBq/7P/R4RK1 w - - 0 1";
+const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
+// const START_FEN = "2k3rr/ppp1npb1/2Pp4/P7/1PBP4/2P2QBq/7P/R4RK1 w - - 0 1";
 const SQUARE_SIZE = 100;
 const ARROW_RADIUS = SQUARE_SIZE / 4;
 const ARROW_WIDTH = SQUARE_SIZE / 10;
@@ -22,6 +23,7 @@ const state = {
   root: null,
   currentNode: null,
   selectedFrom: null,
+  selectedBaseNode: null,
 };
 
 function createNode(parent, move, fenAfter) {
@@ -41,6 +43,7 @@ function freshTree(fen) {
   state.root = root;
   state.currentNode = root;
   state.selectedFrom = null;
+  state.selectedBaseNode = null;
   return root;
 }
 
@@ -314,7 +317,7 @@ function drawBoard() {
 }
 
 function clearArrows() {
-  Array.from(arrowsEl.querySelectorAll("line")).forEach((line) => line.remove());
+  Array.from(arrowsEl.querySelectorAll("line, circle, text")).forEach((element) => element.remove());
 }
 
 function buildArrow(from, to, color, markerId, width, opacity, centerLineColor = null) {
@@ -357,6 +360,35 @@ function buildArrow(from, to, color, markerId, width, opacity, centerLineColor =
     centerLine.setAttribute("opacity", 0.95);
     arrowsEl.appendChild(centerLine);
   }
+
+}
+
+function buildMoveLabel(from, to, color, label) {
+  const start = squareCenter(from);
+  const stop = squareCenter(to);
+  const labelX = start.x + (stop.x - start.x) * 0.4;
+  const labelY = start.y + (stop.y - start.y) * 0.4;
+
+  const circle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+  circle.setAttribute("cx", labelX);
+  circle.setAttribute("cy", labelY);
+  circle.setAttribute("r", 23);
+  circle.setAttribute("fill", color);
+  circle.setAttribute("stroke", color === "#f7f7f7" ? "#232323" : "#f7f7f7");
+  circle.setAttribute("stroke-width", 4);
+  arrowsEl.appendChild(circle);
+
+  const text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+  text.setAttribute("x", labelX);
+  text.setAttribute("y", labelY);
+  text.setAttribute("fill", color === "#f7f7f7" ? "#232323" : "#f7f7f7");
+  text.setAttribute("text-anchor", "middle");
+  text.setAttribute("dominant-baseline", "central");
+  text.setAttribute("font-size", 34);
+  text.setAttribute("font-family", "Arial, sans-serif");
+  text.setAttribute("font-weight", "700");
+  text.textContent = String(label);
+  arrowsEl.appendChild(text);
 }
 
 function drawArrows() {
@@ -372,17 +404,10 @@ function drawArrows() {
     buildArrow(node.move.from, node.move.to, color, markerId, ARROW_WIDTH, opacity, centerLineColor);
   });
 
-  const siblings = siblingsOfCurrent();
-  if (siblings.length > 1) {
-    siblings.forEach((node) => {
-      if (node === state.currentNode) {
-        return;
-      }
-      const color = node.move.color === "w" ? "#f7f7f7" : "#232323";
-      const markerId = node.move.color === "w" ? "arrow-white" : "arrow-black";
-      buildArrow(node.move.from, node.move.to, color, markerId, ARROW_WIDTH, 0.65);
-    });
-  }
+  path.forEach((node, index) => {
+    const color = node.move.color === "w" ? "#f7f7f7" : "#232323";
+    buildMoveLabel(node.move.from, node.move.to, color, index + 1);
+  });
 
 }
 
@@ -961,53 +986,64 @@ function pieceOnShownBoard(square) {
   return parsePlacement(state.acceptedFen)[square];
 }
 
+function dragBaseNodeForSquare(square) {
+  const currentPosition = parseFen(state.currentNode.fenAfter);
+  const currentPiece = currentPosition.board[square];
+  if (currentPiece && pieceColor(currentPiece) === currentPosition.activeColor) {
+    return state.currentNode;
+  }
+
+  const parent = state.currentNode.parent;
+  if (parent && state.currentNode.move) {
+    const parentPosition = parseFen(parent.fenAfter);
+    const parentPiece = parentPosition.board[square];
+    if (parentPiece &&
+        pieceColor(parentPiece) === parentPosition.activeColor &&
+        pieceColor(parentPiece) === state.currentNode.move.color) {
+      return parent;
+    }
+  }
+
+  return null;
+}
+
 boardEl.addEventListener("mousedown", (event) => {
   const squareEl = event.target.closest(".square");
   if (!squareEl) {
     return;
   }
   const square = squareEl.dataset.square;
+  const baseNode = dragBaseNodeForSquare(square);
 
-  if (event.button !== 0) {
+  if (event.button !== 0 || !baseNode) {
     return;
   }
-
-  if (!state.selectedFrom) {
-    state.selectedFrom = square;
-    render();
-    return;
-  }
-
-  if (state.selectedFrom === square) {
-    state.selectedFrom = null;
-    render();
-    return;
-  }
-
-  const from = state.selectedFrom;
-  const to = square;
-  state.selectedFrom = null;
-  if (to !== from) {
-    const baseNode = insertionBaseNodeForDrag(from);
-    const move = legalMoveFromNode(baseNode, from, to);
-    if (move) {
-      addOrSelectChild(baseNode, move);
-    }
-  }
-
+  state.selectedFrom = square;
+  state.selectedBaseNode = baseNode;
   render();
+  event.preventDefault();
+});
+
+boardEl.addEventListener("mouseup", (event) => {
+  if (event.button !== 0 || !state.selectedFrom) return;
+  const squareEl = event.target.closest(".square");
+  const from = state.selectedFrom;
+  const baseNode = state.selectedBaseNode;
+  state.selectedFrom = null;
+  state.selectedBaseNode = null;
+  if (baseNode && squareEl && squareEl.dataset.square !== from) {
+    const move = legalMoveFromNode(baseNode, from, squareEl.dataset.square);
+    if (move) addOrSelectChild(baseNode, move);
+  }
+  render();
+  event.preventDefault();
 });
 
 pathEl.addEventListener("click", (event) => {
   const nodeEl = event.target.closest(".tree-node[data-node-id]");
-  if (!nodeEl) {
-    return;
-  }
-  const nodeId = Number(nodeEl.dataset.nodeId);
-  const node = findNodeById(state.root, nodeId);
-  if (!node) {
-    return;
-  }
+  if (!nodeEl) return;
+  const node = findNodeById(state.root, Number(nodeEl.dataset.nodeId));
+  if (!node) return;
   state.currentNode = node;
   render();
 });
@@ -1033,6 +1069,7 @@ window.addEventListener("keydown", (event) => {
 
 loadFenButton.addEventListener("click", loadFen);
 resetTreeButton.addEventListener("click", resetTree);
+acceptPositionButton.addEventListener("click", acceptCurrentPosition);
 
 fenInput.value = state.acceptedFen;
 freshTree(state.acceptedFen);

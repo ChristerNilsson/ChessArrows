@@ -54,7 +54,7 @@
 
       .toolbar {
         display: grid;
-        grid-template-columns: 1fr auto auto;
+        grid-template-columns: 1fr auto auto auto;
         gap: 10px;
         margin-bottom: 18px;
       }
@@ -231,12 +231,6 @@
         font-weight: 700;
       }
 
-      .legend {
-        margin: 0;
-        line-height: 1.6;
-        color: var(--muted);
-      }
-
       .nav-pad {
         display: grid;
         grid-template-columns: repeat(3, 52px);
@@ -293,6 +287,7 @@
       <section class="toolbar">
         <input id="fen-input" type="text" spellcheck="false" />
         <button id="load-fen" type="button">Ladda FEN</button>
+        <button id="accept-position" type="button">Acceptera aktuell</button>
         <button id="reset-tree" type="button">Rensa</button>
       </section>
 
