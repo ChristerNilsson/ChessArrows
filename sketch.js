@@ -11,12 +11,8 @@ const acceptPositionButton = document.getElementById("accept-position");
 const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
 // const START_FEN = "2k3rr/ppp1npb1/2Pp4/P7/1PBP4/2P2QBq/7P/R4RK1 w - - 0 1";
 const SQUARE_SIZE = 100;
-const ARROW_RADIUS = SQUARE_SIZE / 4;
 const ARROW_WIDTH = SQUARE_SIZE / 10;
-const ARROW_HEAD_LENGTH = 21.65;
-const PREVIEW_ARROW_WIDTH = SQUARE_SIZE / 12;
 const D = SQUARE_SIZE * 0.1;
-const PARALLEL_OFFSET_STEP = SQUARE_SIZE * 0.25;
 const LABEL_DIAMETER = D * 3;
 const LABEL_RADIUS = LABEL_DIAMETER / 2;
 const LICHESS_PIECE_BASE_URL = "https://raw.githubusercontent.com/lichess-org/lila/master/public/piece/cburnett";
@@ -66,11 +62,6 @@ function squareToCoords(square) {
     file: FILES.indexOf(square[0]),
     rank: 8 - Number(square[1]),
   };
-}
-
-function squareCenter(square) {
-  const { file, rank } = squareToCoords(square);
-  return { x: file * SQUARE_SIZE + SQUARE_SIZE / 2, y: rank * SQUARE_SIZE + SQUARE_SIZE / 2 };
 }
 
 function pieceColor(piece) {
@@ -344,42 +335,83 @@ function clearArrows() {
   Array.from(arrowsEl.querySelectorAll(".move-arrow, .move-label")).forEach((element) => element.remove());
 }
 
-function arrowGeometry(from, to, offset = 0) {
-  const start = squareCenter(from);
-  const stop = squareCenter(to);
+const ARROW_POINTS = {
+  rook: {
+    from: [[5, 1], [5, 2], [5, 3], [5, 4], [5, 5]],
+    to: [[1, 1], [1, 2], [1, 3], [1, 4], [1, 5]],
+  },
+  bishop: {
+    from: [[5, 1], [5, 3], [5, 5], [3, 5], [1, 5]],
+    to: [[5, 1], [3, 1], [1, 1], [1, 3], [1, 5]],
+  },
+  knight: {
+    from: [[5, 1], [5, 2.5], [5, 4], [4, 5], [1, 5]],
+    to: [[5, 1], [2, 1], [1, 2], [1, 3.5], [1, 5]],
+  },
+};
+
+function interpolateArrowPoint(points, t) {
+  const position = Math.max(0, Math.min(1, t)) * (points.length - 1);
+  const first = Math.floor(position);
+  const second = Math.min(points.length - 1, first + 1);
+  const amount = position - first;
+  return [
+    points[first][0] + (points[second][0] - points[first][0]) * amount,
+    points[first][1] + (points[second][1] - points[first][1]) * amount,
+  ];
+}
+
+function arrowKind(move) {
+  const from = squareToCoords(move.from);
+  const to = squareToCoords(move.to);
+  const dx = Math.abs(to.file - from.file);
+  const dy = Math.abs(to.rank - from.rank);
+  if ((dx === 1 && dy === 2) || (dx === 2 && dy === 1)) return "knight";
+  if (dx === dy) return "bishop";
+  return "rook";
+}
+
+function transformArrowPoint(square, point, move) {
+  const origin = squareToCoords(square);
+  const from = squareToCoords(move.from);
+  const to = squareToCoords(move.to);
+  const dx = to.file - from.file;
+  const dy = to.rank - from.rank;
+  const swapAxes = Math.abs(dy) > Math.abs(dx);
+  let [x, y] = point;
+  if (swapAxes) [x, y] = [y, x];
+  if (dx < 0) x = 6 - x;
+  if (dy < 0) y = 6 - y;
+  return {
+    x: origin.file * SQUARE_SIZE + x * SQUARE_SIZE / 6,
+    y: origin.rank * SQUARE_SIZE + y * SQUARE_SIZE / 6,
+  };
+}
+
+function arrowGeometry(move, lanePosition = 0.5) {
+  const points = ARROW_POINTS[arrowKind(move)];
+  const fromPoint = interpolateArrowPoint(points.from, lanePosition);
+  const toPoint = interpolateArrowPoint(points.to, lanePosition);
+  const start = transformArrowPoint(move.from, fromPoint, move);
+  const stop = transformArrowPoint(move.to, toPoint, move);
   const dx = stop.x - start.x;
   const dy = stop.y - start.y;
   const length = Math.hypot(dx, dy);
-  if (!length) {
-    return null;
-  }
-  const ux = dx / length;
-  const uy = dy / length;
-  const normalX = -uy;
-  const normalY = ux;
-  // Move to the nearest 25/75-percent line inside the start and target
-  // squares. On diagonals this keeps the endpoints on the move line while
-  // making at least one board coordinate exactly 25% or 75%.
-  const trim = Math.min(ARROW_RADIUS / Math.max(Math.abs(ux), Math.abs(uy)), length * 0.45);
-  const shiftedStart = {
-    x: start.x + normalX * offset,
-    y: start.y + normalY * offset,
-  };
-  const x1 = shiftedStart.x + ux * trim;
-  const y1 = shiftedStart.y + uy * trim;
-  const markerTrim = Math.min(trim + ARROW_HEAD_LENGTH, length - trim);
-  const x2 = stop.x + normalX * offset - ux * markerTrim;
-  const y2 = stop.y + normalY * offset - uy * markerTrim;
+  if (!length) return null;
+  const x1 = start.x;
+  const y1 = start.y;
+  const x2 = stop.x;
+  const y2 = stop.y;
   const geometry = {
     path: `M ${x1} ${y1} L ${x2} ${y2}`,
     x1, y1, x2, y2,
-    labelX: x1,
-    labelY: y1,
+    labelX: start.x,
+    labelY: start.y,
   };
   return geometry;
 }
 
-function buildArrow(geometry, color, markerId, width, opacity) {
+function buildArrow(geometry, color, width, opacity) {
   if (!geometry) return;
 
   const outlineColor = color === "#f7f7f7" ? "#232323" : "#f7f7f7";
@@ -400,7 +432,6 @@ function buildArrow(geometry, color, markerId, width, opacity) {
   path.setAttribute("stroke", color);
   path.setAttribute("stroke-width", width);
   path.setAttribute("stroke-linecap", "round");
-  path.setAttribute("marker-end", `url(#${markerId})`);
   path.setAttribute("opacity", opacity);
   arrowsEl.appendChild(path);
 
@@ -489,19 +520,23 @@ function drawArrows() {
   const geometries = path.map((node, index) => {
     const laneCount = laneCounts.get(lineKeys[index]);
     const centeredLane = lanes[index] - (laneCount - 1) / 2;
-    let offset = centeredLane * PARALLEL_OFFSET_STEP;
-    // Use one canonical normal for both directions along the same line.
-    if (node.move.from > node.move.to) {
-      offset *= -1;
+    // Up to five lanes use the prescribed 25-percent steps. If more lanes
+    // are needed, distribute all of them evenly between the outermost
+    // permitted paths instead of clipping several lanes onto each other.
+    let lanePosition = laneCount <= 5
+      ? 0.5 + centeredLane * 0.25
+      : lanes[index] / (laneCount - 1);
+    // Keep a lane in the same physical place when the move is reversed.
+    if (node.move.from > node.move.to && arrowKind(node.move) !== "rook") {
+      lanePosition = 1 - lanePosition;
     }
-    return arrowGeometry(node.move.from, node.move.to, offset);
+    return arrowGeometry(node.move, lanePosition);
   });
 
   path.forEach((node, index) => {
     const color = node.move.color === "w" ? "#f7f7f7" : "#232323";
-    const markerId = node.move.color === "w" ? "arrow-white" : "arrow-black";
     const opacity = index === currentIndex ? 0.95 : 0.9;
-    buildArrow(geometries[index], color, markerId, ARROW_WIDTH, opacity);
+    buildArrow(geometries[index], color, ARROW_WIDTH, opacity);
   });
 
   path.forEach((node, index) => {

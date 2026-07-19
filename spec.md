@@ -14,18 +14,40 @@ Ge mig ett javascript-program som gör följande:
 * Man ska när som helst kunna acceptera en ställning som aktuell ställning.
 
 * Rita dragets nummer på varje pil i rätt färg. 
-* Startpunkt ska alltid vara 25% eller 75%. Minimera pilarnas längd
 * Förhindra att pilarna ritas ovanpå varandra genom att parallellförflytta dem
 * Dragnumret placeras där pilen startar
 * d = 0.1 av en rutas storlek
 * Cirklarna har diametern 3d och har dragets färg. Deras periferi bör vara 1 pixel.
+
+* Så här ska pilarna dras. Rutsidan är sex enheter. Från -> Till
+	* Tornliknande drag.
+		* 5,1 -> 1,1
+		* 5,2 -> 1,2
+		* 5,3 -> 1,3
+		* 5,4 -> 1,4
+		* 5,5 -> 1,5
+	* Löparliknande drag. Se till att linjerna blir parallella.
+		* 5,1 -> 5,1
+		* 5,3 -> 3,1
+		* 5,5 -> 1,1
+		* 3,5 -> 1,3
+		* 1,5 -> 1,5
+	* Springarliknande drag.
+		* 5,1 -> 5,1
+		* 5,2.5 -> 2,1
+		* 5,4 -> 1,2
+		* 4,5 -> 1,3.5
+		* 1,5 -> 1,5
+
+* Pilarna ska istället för avslutande triangel avslutas mjukt. Dvs en halvcirkel.
+
 * Om en pjäs rör sig a1-a8-a2 ska raka parallellförflyttade pilar användas. Avstånd mellan dem: 25%. Pilarnas längd: 25% + 600% + 25%
 * Om tre linjer behöver dras, rita dem i ordning. A-B 25% B-A 50% A-B 75%
 * Rita alla pilar i ett första pass. Rita sedan alla nummer i cirklar i ett andra pass. 
 * Pilarna bör ha en periferi på 1 pixel i motsatt färg.
-* Om vi har ett torn som rör sig stokastiskt fram och tillbaks på t ex a-linjen, se till att återanvända linjeutrymmet maximalt. 
-* Gör tornet sju smådrag, kan de gå in på en enda linje. T ex 1 2 3 4 5 6 7 8
-* Men det kan också tvingas gå in på sju linjer. T ex 1 8 2 7 3 6 4 5
+* Om vi har ett torn/löpare som rör sig stokastiskt fram och tillbaks längs en linje, se till att återanvända linjeutrymmet maximalt. 
+* Gör pjäsen drag i samma riktning, kan de använda en enda linje. T ex 1 2 3 4 5
+* Går pjäsen fram och tillbaks förbrukas fler linjer. T ex 1 5 2 4 3
 
 * Man ska bara se pilarna från startställningen till aktuellt drag.
 * Den aktuella ställningen ska påverkas av vilka drag man gjort. T ex ska man kunna göra Kh3 följt av Kh4
