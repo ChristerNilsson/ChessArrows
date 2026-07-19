@@ -7,6 +7,7 @@ const fenInput = document.getElementById("fen-input");
 const loadFenButton = document.getElementById("load-fen");
 const resetTreeButton = document.getElementById("reset-tree");
 const acceptPositionButton = document.getElementById("accept-position");
+const actualPositionCheckbox = document.getElementById("actual-position");
 
 const START_FEN = "5Q1R/1p5R/p1b1k1p1/5p2/P2P4/3nP1K1/4r3/8 b - - 0 1";
 // const START_FEN = "2k3rr/ppp1npb1/2Pp4/P7/1PBP4/2P2QBq/7P/R4RK1 w - - 0 1";
@@ -294,7 +295,10 @@ function parsePlacement(fen) {
 
 function drawBoard() {
   boardEl.innerHTML = "";
-  const pieces = parsePlacement(state.acceptedFen);
+  const shownFen = actualPositionCheckbox.checked
+    ? state.currentNode.fenAfter
+    : state.acceptedFen;
+  const pieces = parsePlacement(shownFen);
 
   for (const rank of RANKS) {
     for (const file of FILES) {
@@ -513,6 +517,10 @@ function assignArrowLanes(path) {
 
 function drawArrows() {
   clearArrows();
+
+  if (actualPositionCheckbox.checked) {
+    return;
+  }
 
   const path = pathToCurrent();
   const currentIndex = path.length - 1;
@@ -1137,6 +1145,10 @@ function dragBaseNodeForSquare(square) {
     return state.currentNode;
   }
 
+  if (actualPositionCheckbox.checked) {
+    return null;
+  }
+
   const parent = state.currentNode.parent;
   if (parent && state.currentNode.move) {
     const parentPosition = parseFen(parent.fenAfter);
@@ -1238,6 +1250,11 @@ window.addEventListener("keydown", (event) => {
 loadFenButton.addEventListener("click", loadFen);
 resetTreeButton.addEventListener("click", resetTree);
 acceptPositionButton.addEventListener("click", acceptCurrentPosition);
+actualPositionCheckbox.addEventListener("change", () => {
+  state.selectedFrom = null;
+  state.selectedBaseNode = null;
+  render();
+});
 
 fenInput.value = state.acceptedFen;
 freshTree(state.acceptedFen);

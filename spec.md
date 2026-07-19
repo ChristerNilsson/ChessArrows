@@ -52,3 +52,9 @@ Ge mig ett javascript-program som gör följande:
 * Man ska bara se pilarna från startställningen till aktuellt drag.
 * Den aktuella ställningen ska påverkas av vilka drag man gjort. T ex ska man kunna göra Kh3 följt av Kh4
 * Om jag precis utfört ett vitt drag och gör ett till vitt drag ska båda dragen vara med i trädet. De utgör alternativ.
+
+* Alternativ visning
+	* En kryssruta styr
+	* Inga pilar
+	* Visa verklig ställning
+	* I övrigt samma hantering

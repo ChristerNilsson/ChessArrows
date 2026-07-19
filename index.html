@@ -54,12 +54,12 @@
 
       .toolbar {
         display: grid;
-        grid-template-columns: 1fr auto auto auto;
+        grid-template-columns: 1fr auto auto auto auto;
         gap: 10px;
         margin-bottom: 18px;
       }
 
-      .toolbar input,
+      .toolbar input[type="text"],
       .toolbar button {
         min-height: 44px;
         border-radius: 12px;
@@ -67,9 +67,28 @@
         font: inherit;
       }
 
-      .toolbar input {
+      .toolbar input[type="text"] {
         padding: 0 14px;
         background: rgba(255, 255, 255, 0.84);
+      }
+
+      .view-toggle {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.84);
+        white-space: nowrap;
+        cursor: pointer;
+      }
+
+      .view-toggle input {
+        width: 18px;
+        height: 18px;
+        margin: 0;
       }
 
       .toolbar button {
@@ -289,6 +308,10 @@
         <button id="load-fen" type="button">Ladda FEN</button>
         <button id="accept-position" type="button">Acceptera aktuell</button>
         <button id="reset-tree" type="button">Rensa</button>
+        <label class="view-toggle">
+          <input id="actual-position" type="checkbox" />
+          Verklig ställning
+        </label>
       </section>
 
       <section class="layout">
