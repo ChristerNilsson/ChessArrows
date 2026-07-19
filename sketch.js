@@ -1229,19 +1229,27 @@ pathEl.addEventListener("click", (event) => {
 });
 
 window.addEventListener("keydown", (event) => {
-  if (event.key === "ArrowRight") {
+  const isInteractiveControl = event.target instanceof Element &&
+    event.target.closest("input, button, textarea, select, [contenteditable='true']");
+
+  if (event.key === " " && !isInteractiveControl) {
+    if (!event.repeat) {
+      actualPositionCheckbox.click();
+    }
+    event.preventDefault();
+  } else if (!isInteractiveControl && event.key === "ArrowRight") {
     goToNextMove();
     event.preventDefault();
-  } else if (event.key === "ArrowLeft") {
+  } else if (!isInteractiveControl && event.key === "ArrowLeft") {
     goToPreviousMove();
     event.preventDefault();
-  } else if (event.key === "ArrowUp") {
+  } else if (!isInteractiveControl && event.key === "ArrowUp") {
     goToSibling(-1);
     event.preventDefault();
-  } else if (event.key === "ArrowDown") {
+  } else if (!isInteractiveControl && event.key === "ArrowDown") {
     goToSibling(1);
     event.preventDefault();
-  } else if (event.key === "Delete") {
+  } else if (!isInteractiveControl && event.key === "Delete") {
     deleteCurrentSubtree();
     event.preventDefault();
   }

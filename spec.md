@@ -58,3 +58,6 @@ Ge mig ett javascript-program som gör följande:
 	* Inga pilar
 	* Visa verklig ställning
 	* I övrigt samma hantering
+	* Mellanslag ska toggla
+
+* Piltangenterna ska fungera när man redigerar FEN.
